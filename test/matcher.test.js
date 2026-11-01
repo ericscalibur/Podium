@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { completeOnPause, matchPhrase, normalizeWords } from '../public/matcher.js';
+import { completeOnPause, hasMovedOn, matchPhrase, normalizeWords } from '../public/matcher.js';
 
 const phrase = 'We choose to go to the moon in this decade';
 
@@ -41,4 +41,15 @@ test('a pause only completes a mostly-read phrase', () => {
   assert.equal(completeOnPause(phrase, [0, 1, 2, 3]), false);
   assert.equal(completeOnPause(phrase, [0, 1, 2, 3, 4, 5, 6]), false);
   assert.equal(completeOnPause(phrase, [0, 1, 2, 3, 4, 5, 6, 7]), true);
+});
+
+test('a short phrase tolerates one misheard word if its end is heard', () => {
+  assert.equal(matchPhrase('No. Loose joints?', 'nope lose joints').complete, true);
+});
+
+test('hearing the next phrase means the narrator has moved on', () => {
+  const heard = 'material page and droppings so they ship the birds away in a crate';
+  assert.equal(hasMovedOn('So they shipped the birds away in a crate', heard), true);
+  assert.equal(hasMovedOn('So they shipped the birds away in a crate', 'so they'), false);
+  assert.equal(hasMovedOn('Nothing changed.', 'nothing changed'), false);
 });

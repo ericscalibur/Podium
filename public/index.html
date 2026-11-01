@@ -8,6 +8,12 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <p id="mic-warning" class="mic-warning" role="alert" hidden>No sound from the microphone. Quit and reopen Chrome, or choose another microphone.</p>
+  <aside class="level" aria-label="Microphone input level">
+    <div id="level-meter" class="level-meter"></div>
+    <p id="level-status" class="level-status" role="status"></p>
+  </aside>
+
   <main id="setup" class="screen setup">
     <header>
       <h1>Podium</h1>
@@ -15,6 +21,10 @@
     </header>
 
     <p id="notice" class="notice" hidden></p>
+
+    <label class="field mic-field">Microphone
+      <select id="mic"></select>
+    </label>
 
     <label id="drop" class="drop">
       <input id="file" type="file" accept=".txt,.md,.markdown,text/plain">
@@ -24,12 +34,6 @@
 
     <section id="ready" class="ready" hidden>
       <div class="controls">
-        <label class="field">Microphone
-          <select id="mic"></select>
-        </label>
-        <div class="field">Input level
-          <div class="meter"><div id="setup-meter"></div></div>
-        </div>
         <label class="field">Text size
           <input id="size" type="range" min="4" max="10" step="0.5" value="6.5">
         </label>
@@ -45,7 +49,6 @@
     <div class="bar">
       <span id="rec" class="rec"><i></i><span id="clock">0:00</span></span>
       <span id="position"></span>
-      <div class="meter"><div id="stage-meter"></div></div>
     </div>
     <div class="prompter">
       <p id="current" class="current"></p>
@@ -74,7 +77,11 @@
       </div>
       <p class="hint">Markers are an Audacity label file. Retakes are labeled RETAKE.</p>
     </section>
-    <button id="again" class="secondary">Read it again</button>
+    <div class="exports">
+      <button id="new-script" class="secondary">New script</button>
+      <button id="again" class="secondary">Read it again</button>
+      <button id="delete" class="danger">Delete recording</button>
+    </div>
   </main>
 
   <script type="module" src="app.js"></script>

@@ -9,6 +9,7 @@ A voice-tracked teleprompter for narrators. Upload a script and read it one bold
 - Splits `.txt` and `.md` scripts into natural phrases of up to 12 words
 - Shows one large phrase at a time, with the next one dimmed below it
 - Advances when you finish a phrase, highlighting words as they are heard
+- Shows a live input meter down the right side, with a warning if the microphone goes silent
 - Records one continuous take, saved to disk as you read
 - Exports WAV (24-bit) or MP3 (192 kbps), plus phrase markers as an Audacity label file
 - Runs on your Mac: audio is not sent to any cloud service

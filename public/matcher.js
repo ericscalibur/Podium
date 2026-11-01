@@ -9,6 +9,8 @@ const NUMBER_WORDS = new Set([
   'million', 'billion', 'percent', 'dollars', 'first', 'second', 'third',
 ]);
 
+const LOOKAHEAD_MIN_WORDS = 4;
+
 export function normalizeWords(text) {
   return text
     .toLowerCase()
@@ -90,7 +92,7 @@ export function matchPhrase(phrase, transcript) {
   const coverage = matched.length / expected.length;
   const lastMatched = matched.at(-1) ?? -1;
   const reachedEnd = lastMatched >= expected.length - Math.min(2, Math.ceil(expected.length / 3));
-  const threshold = expected.length <= 3 ? 1 : 0.7;
+  const threshold = expected.length <= 3 ? 0.6 : 0.7;
 
   return {
     matched,
@@ -99,6 +101,12 @@ export function matchPhrase(phrase, transcript) {
     // Words past the phrase already belong to the next one.
     remainder: heard.slice(heardEnd).join(' '),
   };
+}
+
+// True when the narrator has clearly moved on to `next`, which means the
+// current phrase was misheard. Short phrases are too ambiguous to count.
+export function hasMovedOn(next, transcript) {
+  return normalizeWords(next).length >= LOOKAHEAD_MIN_WORDS && matchPhrase(next, transcript).complete;
 }
 
 // When the final words were garbled, a pause after nearly the whole phrase is

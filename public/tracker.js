@@ -1,12 +1,12 @@
 import { encodeWav, rms, SPEECH_RATE } from './audio.js';
-import { completeOnPause, matchPhrase } from './matcher.js';
+import { completeOnPause, hasMovedOn, matchPhrase } from './matcher.js';
 
 const WINDOW_SECONDS = 12;
 const MIN_AUDIO_SECONDS = 0.5;
 const OVERLAP_SECONDS = 0.3;
 const PAUSE_SECONDS = 2;
 const TICK_MS = 400;
-const MIN_SPEECH_LEVEL = 0.012;
+const MIN_SPEECH_LEVEL = 0.0004;
 
 const WINDOW_SAMPLES = WINDOW_SECONDS * SPEECH_RATE;
 
@@ -39,9 +39,11 @@ export class SpeechTracker {
     this.generation++;
   }
 
-  // `carry` holds words already heard that belong to this phrase.
-  setPhrase(phrase, { startSample = this.total, carry = '' } = {}) {
+  // `carry` holds words already heard that belong to this phrase. `next` is
+  // the phrase after it, used to catch up if this one is misheard.
+  setPhrase(phrase, { startSample = this.total, carry = '', next = '' } = {}) {
     this.phrase = phrase;
+    this.next = next;
     this.windowStart = startSample;
     this.carry = carry;
     this.matched = [];
@@ -59,10 +61,10 @@ export class SpeechTracker {
     if (level > Math.max(MIN_SPEECH_LEVEL, this.noiseFloor * 3)) {
       this.lastSpeechSample = this.total;
       this.hasUnsentSpeech = true;
-    } else {
-      // The floor drops quickly and rises slowly, so speech cannot raise it.
-      this.noiseFloor += (level - this.noiseFloor) * (level < this.noiseFloor ? 0.1 : 0.005);
     }
+    // The floor falls quickly in the gaps between words and rises slowly, so
+    // it settles on the room's noise for quiet and loud microphones alike.
+    this.noiseFloor += (level - this.noiseFloor) * (level < this.noiseFloor ? 0.1 : 0.001);
   }
 
   snapshot(from, to) {
@@ -112,6 +114,8 @@ export class SpeechTracker {
     if (complete) {
       const overlap = Math.round(OVERLAP_SECONDS * SPEECH_RATE);
       this.onComplete({ startSample: Math.max(0, audioEnd - overlap), carry: remainder });
+    } else if (hasMovedOn(this.next, transcript)) {
+      this.onComplete({ startSample: audioEnd, carry: transcript });
     }
   }
 }

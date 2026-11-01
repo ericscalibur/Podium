@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 import { createReadStream, createWriteStream, existsSync } from 'node:fs';
-import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -270,6 +270,15 @@ async function route(req, res) {
     const session = sessions.get(finish[1]);
     if (!session) return sendJson(res, 404, { error: 'Unknown session' });
     return finishSession(req, res, finish[1], session);
+  }
+
+  const take = /^\/api\/sessions\/([\w-]+)$/.exec(pathname);
+  if (req.method === 'DELETE' && take) {
+    if (sessions.has(take[1]) || !existsSync(path.join(sessionDir(take[1]), 'take.wav'))) {
+      return sendJson(res, 404, { error: 'Unknown take' });
+    }
+    await rm(sessionDir(take[1]), { recursive: true });
+    return sendJson(res, 200, { ok: true });
   }
 
   const exported = /^\/api\/sessions\/([\w-]+)\/(take\.wav|take\.mp3|markers\.txt)$/.exec(pathname);

@@ -1,13 +1,13 @@
-import { Downsampler, Microphone, rms } from './audio.js';
+import { Downsampler, Microphone } from './audio.js';
 import { chunkScript } from './chunker.js';
 import { normalizeWords } from './matcher.js';
+import { LevelMonitor, SEGMENTS, segmentZone, STATUS_TEXT } from './meter.js';
 import { Recorder } from './recorder.js';
 import { SpeechTracker } from './tracker.js';
 
 const COUNTDOWN_SECONDS = 3;
 const ROOM_TONE_MS = 1500;
 const STATUS_POLL_MS = 2000;
-const METER_GAIN = 6;
 
 const $ = (id) => document.getElementById(id);
 
@@ -28,6 +28,10 @@ const state = {
 const mic = new Microphone(handleAudioBlock);
 let downsampler = null;
 let micOpening = Promise.resolve();
+let levelMonitor = null;
+let litCount = -1;
+let levelStatus = null;
+let reviewedTake = null;
 const tracker = new SpeechTracker({
   transcribe,
   onProgress: showSpokenWords,
@@ -70,6 +74,38 @@ function showScreen(name) {
   for (const id of ['setup', 'stage', 'review']) $(id).hidden = id !== name;
 }
 
+// Reading and reviewing sit one history entry above setup, so the browser's
+// Back button stays inside Podium.
+function returnToSetup() {
+  $('player').removeAttribute('src');
+  showScreen('setup');
+  if (history.state?.view) history.back();
+}
+
+function handleHistoryBack(event) {
+  if (state.mode === 'reading' || state.mode === 'paused') {
+    // Back during a take saves it and shows the review screen.
+    history.pushState({ view: 'review' }, '');
+    finish();
+  } else if (state.mode === 'countdown') {
+    finish();
+  } else if (state.mode === 'finishing') {
+    history.pushState({ view: 'review' }, '');
+  } else if (!event.state?.view) {
+    returnToSetup();
+  }
+}
+
+function clearScript() {
+  state.title = 'take';
+  state.phrases = [];
+  state.startIndex = 0;
+  $('file').value = '';
+  $('drop-title').textContent = 'Choose a script';
+  $('drop-detail').textContent = 'or drop a .txt or .md file here';
+  $('ready').hidden = true;
+}
+
 function formatTime(seconds) {
   const total = Math.floor(seconds);
   const hours = Math.floor(total / 3600);
@@ -82,7 +118,7 @@ async function pollStatus() {
   try {
     const { speechReady, speechError } = await (await fetch('/api/status')).json();
     state.speechReady = speechReady;
-    if (speechReady) return showNotice('');
+    if (speechReady) return;
     showNotice(speechError ?? 'Loading the speech model…');
   } catch {
     showNotice('Cannot reach the Podium server. Is it still running?');
@@ -96,6 +132,7 @@ function loadScript(name, text) {
     showNotice(`${name} has no readable text.`);
     return;
   }
+  showNotice('');
   state.title = name;
   state.phrases = phrases;
   state.startIndex = 0;
@@ -104,7 +141,6 @@ function loadScript(name, text) {
   $('count').textContent = `${phrases.length} phrases`;
   renderPhraseList();
   $('ready').hidden = false;
-  micOpening = openMicrophone();
 }
 
 function renderPhraseList() {
@@ -129,8 +165,11 @@ async function openMicrophone(deviceId) {
   try {
     await mic.start(deviceId);
     downsampler = new Downsampler(mic.sampleRate);
+    levelMonitor = new LevelMonitor(mic.sampleRate);
     await listMicrophones(deviceId);
   } catch (error) {
+    downsampler = null;
+    showLevelStatus('dead', 'Mic blocked');
     showNotice(`Microphone unavailable: ${error.message}`);
   }
 }
@@ -149,10 +188,36 @@ async function listMicrophones(selected) {
   if (selected) $('mic').value = selected;
 }
 
+function buildLevelMeter() {
+  const segments = Array.from({ length: SEGMENTS }, (_, index) => {
+    const segment = document.createElement('i');
+    segment.className = segmentZone(index);
+    return segment;
+  });
+  $('level-meter').replaceChildren(...segments);
+}
+
+function showLevelStatus(status, text) {
+  $('level-status').textContent = text;
+  $('level-status').className = `level-status ${status}`;
+}
+
+function renderLevel({ lit, status }) {
+  if (lit !== litCount) {
+    [...$('level-meter').children].forEach((segment, index) => {
+      segment.classList.toggle('on', index < lit);
+    });
+    litCount = lit;
+  }
+  if (status !== levelStatus) {
+    showLevelStatus(status, STATUS_TEXT[status]);
+    $('mic-warning').hidden = status !== 'dead';
+    levelStatus = status;
+  }
+}
+
 function handleAudioBlock(block) {
-  const width = `${Math.min(100, rms(block) * METER_GAIN * 100)}%`;
-  $('setup-meter').style.width = width;
-  $('stage-meter').style.width = width;
+  renderLevel(levelMonitor.update(block));
 
   if (state.mode === 'paused' || state.mode === 'setup') return;
   if (state.mode === 'countdown') return;
@@ -202,7 +267,7 @@ function enterPhrase(index, trackerOptions) {
     state.markers.push({ start: state.recorder.seconds, end: null, label });
   }
   renderPhrase();
-  tracker.setPhrase(state.phrases[index], trackerOptions);
+  tracker.setPhrase(state.phrases[index], { ...trackerOptions, next: state.phrases[index + 1] });
 }
 
 function advance(trackerOptions) {
@@ -224,7 +289,7 @@ function togglePause() {
   $('overlay').className = 'overlay message';
   $('overlay').textContent = 'Paused. Press P to resume.';
   $('overlay').hidden = !pausing;
-  if (!pausing) tracker.setPhrase(state.phrases[state.index]);
+  if (!pausing) tracker.setPhrase(state.phrases[state.index], { next: state.phrases[state.index + 1] });
 }
 
 async function runCountdown() {
@@ -255,6 +320,7 @@ async function begin() {
   $('rec').classList.remove('paused');
   $('clock').textContent = recording ? '0:00' : 'Not recording';
   showScreen('stage');
+  history.pushState({ view: 'stage' }, '');
   renderPhrase();
 
   try {
@@ -269,7 +335,7 @@ async function begin() {
     }
   } catch (error) {
     state.mode = 'setup';
-    showScreen('setup');
+    returnToSetup();
     showNotice(`Could not start recording: ${error.message}`);
     return;
   }
@@ -292,7 +358,7 @@ async function finish() {
     state.recorder = null;
     $('overlay').hidden = true;
     state.mode = 'setup';
-    showScreen('setup');
+    returnToSetup();
     return;
   }
   $('overlay').className = 'overlay message';
@@ -316,7 +382,10 @@ function showReview(id, seconds = 0) {
   state.mode = 'setup';
   state.recorder = null;
   $('overlay').hidden = true;
+  reviewedTake = id;
   $('review-audio').hidden = !id;
+  $('delete').hidden = !id;
+  resetDeleteButton();
   const retakes = `${state.retakes} ${state.retakes === 1 ? 'retake' : 'retakes'}`;
   $('review-detail').textContent = id ? `${formatTime(seconds)} recorded, ${retakes}.` : 'Nothing was recorded.';
   if (id) {
@@ -329,8 +398,34 @@ function showReview(id, seconds = 0) {
   showScreen('review');
 }
 
+function resetDeleteButton() {
+  $('delete').textContent = 'Delete recording';
+  $('delete').classList.remove('confirming');
+}
+
+// The first click arms the button; only the second deletes.
+async function deleteTake() {
+  if (!$('delete').classList.contains('confirming')) {
+    $('delete').textContent = 'Really delete? This cannot be undone';
+    $('delete').classList.add('confirming');
+    return;
+  }
+  $('player').removeAttribute('src');
+  const response = await fetch(`/api/sessions/${reviewedTake}`, { method: 'DELETE' });
+  if (!response.ok) {
+    $('review-detail').textContent = 'Could not delete the recording.';
+    resetDeleteButton();
+    return;
+  }
+  returnToSetup();
+  showNotice('Recording deleted.');
+}
+
 async function readFile(file) {
-  if (file) loadScript(file.name, await file.text());
+  if (!file) return;
+  loadScript(file.name, await file.text());
+  // Lets the same file be chosen again after New script.
+  $('file').value = '';
 }
 
 $('file').addEventListener('change', (event) => readFile(event.target.files[0]));
@@ -356,10 +451,14 @@ $('size').addEventListener('input', (event) => {
   storeSize(event.target.value);
 });
 $('begin').addEventListener('click', begin);
-$('again').addEventListener('click', () => {
-  $('player').removeAttribute('src');
-  showScreen('setup');
+$('delete').addEventListener('click', deleteTake);
+$('delete').addEventListener('blur', resetDeleteButton);
+$('again').addEventListener('click', returnToSetup);
+$('new-script').addEventListener('click', () => {
+  clearScript();
+  returnToSetup();
 });
+window.addEventListener('popstate', handleHistoryBack);
 
 const stageKeys = {
   ' ': () => advance(),
@@ -383,4 +482,6 @@ if (savedSize) {
   $('size').value = savedSize;
   applySize(savedSize);
 }
+buildLevelMeter();
+micOpening = openMicrophone();
 pollStatus();
