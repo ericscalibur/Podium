@@ -1,0 +1,15 @@
+{
+  "name": "podium",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Voice-tracked teleprompter and recorder for narrators.",
+  "type": "module",
+  "scripts": {
+    "setup": "./scripts/setup.sh",
+    "start": "node server.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
