@@ -4,7 +4,7 @@ import { completeOnPause, matchPhrase } from './matcher.js';
 const WINDOW_SECONDS = 12;
 const MIN_AUDIO_SECONDS = 0.5;
 const OVERLAP_SECONDS = 0.3;
-const PAUSE_SECONDS = 1.4;
+const PAUSE_SECONDS = 2;
 const TICK_MS = 400;
 const MIN_SPEECH_LEVEL = 0.012;
 

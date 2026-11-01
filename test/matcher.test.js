@@ -39,5 +39,6 @@ test('a short phrase must be heard in full', () => {
 
 test('a pause only completes a mostly-read phrase', () => {
   assert.equal(completeOnPause(phrase, [0, 1, 2, 3]), false);
+  assert.equal(completeOnPause(phrase, [0, 1, 2, 3, 4, 5, 6]), false);
   assert.equal(completeOnPause(phrase, [0, 1, 2, 3, 4, 5, 6, 7]), true);
 });

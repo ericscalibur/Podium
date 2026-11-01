@@ -27,6 +27,7 @@ const state = {
 
 const mic = new Microphone(handleAudioBlock);
 let downsampler = null;
+let micOpening = Promise.resolve();
 const tracker = new SpeechTracker({
   transcribe,
   onProgress: showSpokenWords,
@@ -103,7 +104,7 @@ function loadScript(name, text) {
   $('count').textContent = `${phrases.length} phrases`;
   renderPhraseList();
   $('ready').hidden = false;
-  openMicrophone();
+  micOpening = openMicrophone();
 }
 
 function renderPhraseList() {
@@ -238,6 +239,7 @@ async function runCountdown() {
 }
 
 async function begin() {
+  await micOpening;
   if (!downsampler) return showNotice('Choose a working microphone first.');
   showNotice('');
   state.mode = 'countdown';
@@ -346,7 +348,9 @@ $('drop').addEventListener('drop', (event) => {
   readFile(event.dataTransfer.files[0]);
 });
 
-$('mic').addEventListener('change', (event) => openMicrophone(event.target.value));
+$('mic').addEventListener('change', (event) => {
+  micOpening = openMicrophone(event.target.value);
+});
 $('size').addEventListener('input', (event) => {
   applySize(event.target.value);
   storeSize(event.target.value);

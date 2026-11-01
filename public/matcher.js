@@ -101,9 +101,11 @@ export function matchPhrase(phrase, transcript) {
   };
 }
 
-// When the final words were garbled, a pause after most of the phrase is the
-// signal. Requiring the later words keeps a mid-phrase pause from advancing.
+// When the final words were garbled, a pause after nearly the whole phrase is
+// the signal. Only the last few words may be missing, so a dramatic pause
+// partway through does not advance.
 export function completeOnPause(phrase, matched) {
   const total = normalizeWords(phrase).length;
-  return matched.length / total >= 0.65 && (matched.at(-1) ?? -1) + 1 >= total * 0.65;
+  const remaining = total - ((matched.at(-1) ?? -1) + 1);
+  return matched.length / total >= 0.7 && remaining <= Math.max(1, Math.floor(total * 0.2));
 }

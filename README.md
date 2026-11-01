@@ -2,7 +2,7 @@
 
 A voice-tracked teleprompter for narrators. Upload a script and read it one bold phrase at a time as local Whisper follows your voice, then export the recording as WAV or MP3.
 
-> **Status:** early. The voice tracking has not yet been tested end to end.
+> **Status:** early. Voice tracking has been tested end to end in Chrome with synthesized speech, but not yet with a live microphone.
 
 ## Features
 
@@ -25,7 +25,7 @@ A voice-tracked teleprompter for narrators. Upload a script and read it one bold
 npm run setup
 ```
 
-This installs `whisper-cpp` and `ffmpeg` if they are missing, then downloads the Whisper `base.en` model into `models/`. Homebrew may need to build dependencies from source, which can take a while on older macOS versions.
+This installs `ffmpeg` and `cmake` if they are missing, builds the whisper.cpp server into `vendor/`, then downloads the Whisper `base.en` model into `models/`.
 
 ## Usage
 
@@ -33,7 +33,7 @@ This installs `whisper-cpp` and `ffmpeg` if they are missing, then downloads the
 npm start
 ```
 
-Open <http://localhost:4600> in Chrome, choose a script, allow microphone access and press **Begin**. Reading starts after a three-second countdown.
+The first launch takes about 30 seconds while Whisper prepares the GPU. Open <http://localhost:4600> in Chrome, choose a script, allow microphone access and press **Begin**. Reading starts after a three-second countdown.
 
 | Key | Action |
 | --- | --- |

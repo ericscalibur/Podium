@@ -14,6 +14,7 @@ const WHISPER_PORT = Number(process.env.WHISPER_PORT ?? 4601);
 const MODEL = process.env.PODIUM_MODEL ?? 'base.en';
 const MODEL_PATH = path.join(ROOT, 'models', `ggml-${MODEL}.bin`);
 const WHISPER_URL = `http://127.0.0.1:${WHISPER_PORT}`;
+const WHISPER_BIN = path.join(ROOT, 'vendor', 'whisper.cpp', 'build', 'bin', 'whisper-server');
 
 const MAX_TRANSCRIBE_BYTES = 8 * 1024 * 1024;
 const MAX_AUDIO_CHUNK_BYTES = 32 * 1024 * 1024;
@@ -36,7 +37,7 @@ function startWhisper() {
     return;
   }
   whisperProcess = spawn(
-    'whisper-server',
+    WHISPER_BIN,
     ['--model', MODEL_PATH, '--host', '127.0.0.1', '--port', String(WHISPER_PORT), '--language', 'en'],
     { stdio: 'ignore' },
   );

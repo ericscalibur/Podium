@@ -7,7 +7,7 @@
   "scripts": {
     "setup": "./scripts/setup.sh",
     "start": "node server.js",
-    "test": "node --test"
+    "test": "node --test test/*.test.js"
   },
   "engines": {
     "node": ">=20"

@@ -12,7 +12,7 @@ async function postJson(url, body) {
 }
 
 // Streams audio to disk as it is captured, so a long take does not live in
-// browser memory and survives a closed tab.
+// browser memory. A take left unfinished keeps its raw take.f32 on disk.
 export class Recorder {
   constructor({ onError }) {
     this.onError = onError;
